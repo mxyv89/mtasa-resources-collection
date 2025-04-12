@@ -1,1 +1,10 @@
-
+<meta>
+	<info author="mxyv89" name="Dances Script" type="script" version="1.0.0" description="" />
+	<script src="server.lua" type="server" />
+	<script src="client.lua" type="client" />
+	<settings> 
+		<setting name="*winner" value="DANCING:DAN_Down_A,DANCING:DAN_Loop_A,DANCING:dnce_M_d,STRIP:strip_D" group="Dances For Winners" />
+		<setting name="*loser" value="" group="Dances For Losers" />
+		<setting name="*draw" value="" group="Dances For a Draw" />
+	</settings>
+</meta> 
