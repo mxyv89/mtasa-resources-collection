@@ -1,1 +1,12 @@
-
+<meta>
+	<info author="mxyv89" name="Player Speed" type="script" version="1.0" description="" />
+	<script src="server.lua" type="server" />
+	<script src="client.lua" type="client" />
+	
+	<export function="setPlayerSpeed" type="server" />
+	<export function="getPlayerSpeed" type="server" />
+	
+	<aclrequest>
+        <right name="command.player_speed" access="true" />
+    </aclrequest>
+</meta>
