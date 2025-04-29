@@ -1,31 +1,38 @@
 local keysDataTable = {}
-local minKeyTime = 200 -- // Minimal time between key clicks
-local minWheelTime = 1 -- // Minimal time between wheel(down or up) clicks
-local timeForCheck = 3000 -- // How long does it take for the macro to be checked
-local warningsLimit = 3 -- // If the value reaches more than this value,then a report will be sent
-local minTableLengthToAnalyze = 10
+local minimalIntervalBetweenKeyClicks = 200 -- // Minimal time between key clicks
+local minimalIntervalBetweenWheelClicks = 1 -- // Minimal time between wheel clicks
+local minimalIntervalsLimit = 3 -- // If the player has exceeded the minimum time between clicks a given number of times, a report will be sent
+local timeForMacroToBeChecked = 3000 -- // How long does it take for the macro to be checked
+local minimalLengthForIntervalsCheck = 10 -- // If the interval table size more than the given value, then a check for differences in intervals will be performed
+local minimalUnitInterval = 0.5 -- // If the number of equal time intervals in the interval table is more or equal to half the size of this table, then a report will be sent
 
-local function doesTheUserHaveMacro(button)
+local function checkForEqualIntervals(button)
 	if keysDataTable[button] then 
 		local tableLength = #keysDataTable[button].diffTimeStatistics
-		if tableLength > minTableLengthToAnalyze then
-			local checkedValues = {}
+		if tableLength >= minimalLengthForIntervalsCheck then
+			local valueCounter = {}
 			for i = 1,tableLength do
 				local valueToCheck = keysDataTable[button].diffTimeStatistics[i]
-				if checkedValues[valueToCheck] == nil then
-					local valueCount = 0
-					for j = 1,tableLength do 
+				if valueCounter[valueToCheck] == nil then
+					valueCounter[valueToCheck] = 1
+					for j = (i+1),tableLength do 
 						if valueToCheck == keysDataTable[button].diffTimeStatistics[j] then
-							valueCount = valueCount + 1
+							valueCounter[valueToCheck] = valueCounter[valueToCheck] + 1
 						end
 					end
-					checkedValues[valueCount] = valueCount
 				end
 			end
-			local maxValue = getTableMaxValue(checkedValues)
-			if maxValue > tableLength / 2 then 
-				return true
+			local highestNumber = 0
+			for _,currentValue in pairs(valueCounter) do 
+				if currentValue > highestNumber then 
+					highestNumber = currentValue
+				end
 			end
+			local unitInterval = highestNumber / tableLength
+			if unitInterval >= minimalUnitInterval then 
+				return true,unitInterval
+			end
+			return false,unitInterval
 		end
 	end
 	return false
@@ -40,10 +47,10 @@ local function fixWeaponFistBug()
 	end
 end
 
-local function fixWheelSprintBug(theButton)
-	if theButton == "mouse_wheel_down" or theButton == "mouse_wheel_up" then
+local function fixWheelSprintBug(button)
+	if button == "mouse_wheel_down" or button == "mouse_wheel_up" then
 		local controlKeys = getBoundKeys('sprint')
-		if controlKeys[theButton] then 
+		if controlKeys[button] then 
 			local pedMoveState = getPedMoveState(localPlayer)
 			if pedMoveState == "sprint" then
 				cancelEvent()
@@ -52,37 +59,39 @@ local function fixWheelSprintBug(theButton)
 	end
 end
 
-local function checkForMacro(theButton)
+local function checkForMacro(button)
 	local currentTick = getTickCount()
-	local minTime = (theButton == 'wheel_mouse_down' or theButton == 'wheel_mouse_up') and minWheelTime or minKeyTime
-	if keysDataTable[theButton] == nil then
-		keysDataTable[theButton] = {
+	local minTime = (button == 'wheel_mouse_down' or button == 'wheel_mouse_up') and minimalIntervalBetweenWheelClicks or minimalIntervalBetweenKeyClicks
+	if keysDataTable[button] == nil then
+		keysDataTable[button] = {
 			diffTimeStatistics = {},
 			warningsCount = 0,
 			lastClickTick = nil,
 			firstClickTick = nil
 		}
 	end
-	if keysDataTable[theButton].lastClickTick then 
-		local diffTime = currentTick - keysDataTable[theButton].lastClickTick
+	if keysDataTable[button].lastClickTick then 
+		local diffTime = currentTick - keysDataTable[button].lastClickTick
 		if diffTime < minTime then
-			keysDataTable[theButton].warningsCount = keysDataTable[theButton].warningsCount + 1
+			keysDataTable[button].warningsCount = keysDataTable[button].warningsCount + 1
 		end
-		keysDataTable[theButton].diffTimeStatistics[#keysDataTable[theButton].diffTimeStatistics+1] = diffTime
+		keysDataTable[button].diffTimeStatistics[#keysDataTable[button].diffTimeStatistics+1] = diffTime
 	end
-	if keysDataTable[theButton].firstClickTick then
-		if currentTick - keysDataTable[theButton].firstClickTick > timeForCheck then
-			local fastClickerReport = keysDataTable[theButton].warningsCount and keysDataTable[theButton].warningsCount > warningsLimit
-			if fastClickerReport then
-				triggerServerEvent('onPlayerPunish',localPlayer,keysDataTable[theButton].warningsCount)
+	if keysDataTable[button].firstClickTick then
+		if currentTick - keysDataTable[button].firstClickTick > timeForMacroToBeChecked then
+			local fastClickerReport = keysDataTable[button].warningsCount and keysDataTable[button].warningsCount > minimalIntervalsLimit
+			local isIntervalCheck,unitInterval = checkForEqualIntervals(button)
+			if fastClickerReport or isIntervalCheck then
+				local unitIntervalData = unitInterval and (unitInterval * 100)..'%' or 'not enough intervals to check'
+				triggerServerEvent('onPlayerPunish',localPlayer,keysDataTable[button].warningsCount,unitIntervalData)
 			end
-			keysDataTable[theButton] = nil
+			keysDataTable[button] = nil
 		end
 	else
-		keysDataTable[theButton].firstClickTick = currentTick
+		keysDataTable[button].firstClickTick = currentTick
 	end
-	if keysDataTable[theButton] then
-		keysDataTable[theButton].lastClickTick = currentTick
+	if keysDataTable[button] then
+		keysDataTable[button].lastClickTick = currentTick
 	end
 end
 
@@ -92,9 +101,9 @@ addEventHandler("onClientPreRender",root,
 end)
 
 addEventHandler("onClientKey",root,
-	function(theButton,isPressed)
+	function(button,isPressed)
 		if isPressed then 
-			fixWheelSprintBug(theButton)
-			checkForMacro(theButton)
+			fixWheelSprintBug(button)
+			checkForMacro(button)
 		end
 end)
