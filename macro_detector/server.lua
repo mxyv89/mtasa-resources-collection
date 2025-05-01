@@ -1,7 +1,9 @@
 local reportFilePath = 'reports/macro_reports.xml'
-local isReportEnabled = true
+local isReportEnabled = nil
+local resourceName = getResourceName(resource)
+local settingName = '*'..resourceName..'.report'
 
-local function writeReport(serialNumber,playerName,warningsCount,unitInterval)
+local function writeReport(serialNumber,playerName,warningsCount,unitInterval,buttonName)
 	local xmlReportFile = nil
 	if fileExists(reportFilePath) == false then
 		xmlReportFile = xmlCreateFile(reportFilePath,'serials')
@@ -29,9 +31,10 @@ local function writeReport(serialNumber,playerName,warningsCount,unitInterval)
 			local time = getRealTime()
 			local timeStr = string.format("%04d-%02d-%02d %02d:%02d:%02d",time.year + 1900,time.month + 1,time.monthday,time.hour,time.minute,time.second)
 			xmlNodeSetAttribute(xmlDataNode,'player_name',playerName)
+			xmlNodeSetAttribute(xmlDataNode,'button_name',buttonName)
 			xmlNodeSetAttribute(xmlDataNode,'equal_intervals_number',unitInterval)
 			xmlNodeSetAttribute(xmlDataNode,'min_interval_warnings',warningsCount)
-			xmlNodeSetAttribute(xmlDataNode,'time',timeStr)
+			xmlNodeSetAttribute(xmlDataNode,'report_time',timeStr)
 		end
 		xmlSaveFile(xmlReportFile)
 		xmlUnloadFile(xmlReportFile)
@@ -41,25 +44,28 @@ local function writeReport(serialNumber,playerName,warningsCount,unitInterval)
 end
 
 addEventHandler('onSettingChange',root,
-	function()
-		
+	function(setting,old,new)
+		if setting == settingName then 
+			local changedValue = fromJSON(new)
+			isReportEnabled = changedValue == 'true'
+		end
 end)
 
 addEventHandler('onResourceStart',resourceRoot,
 	function()
-		
+		isReportEnabled = get(settingName) == 'true'
 end)
 
 addEvent('onPlayerPunish',true)
 addEventHandler('onPlayerPunish',root,
-	function(warningsCount,unitInterval)
+	function(warningsCount,unitInterval,buttonName)
 		if isReportEnabled then
-			writeReport(getPlayerSerial(source),getPlayerName(source),warningsCount,unitInterval)
+			writeReport(getPlayerSerial(source),getPlayerName(source),warningsCount,unitInterval,buttonName)
 		else
 			if hasObjectPermissionTo(getThisResource(),'function.kickPlayer') then 
-				kickPlayer(source,'Kicked by using macro hack!')
+				kickPlayer(source,'You are suspected of using a macro')
 			else
-				outputServerLog('* Unable to kick the player')
+				outputServerLog('The resource <'..resourceName..'> does not have <function.kickPlayer> right')
 			end
 		end
 end)
