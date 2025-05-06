@@ -1,29 +1,39 @@
 local screenWidth,screenHeight = guiGetScreenSize()
+-- // Global items // --
 local totalItems = {}
-local renderTarget = nil
+local totalItemsListener = {}
+-- // Grid list // --
 local gridlistX = 0
 local gridlistY = 0
 local gridlistWidth = 200
-local gridlistHeight = 300
+local gridlistHeight = 304
+-- // Render target // --
+local renderTarget = nil
 local renderTargetX = (screenWidth / 2) - (gridlistWidth / 2)
 local renderTargetY = (screenHeight / 2) - (gridlistHeight / 2)
-local scrollbarX = (gridlistX + gridlistWidth) - 20
+-- // Scroll bar // --
+local scrollbarX = (gridlistX + gridlistWidth) - 15
 local scrollbarY = gridlistY
 local scrollbarWidth = 15
 local scrollbarHeight = 0
 local scrollbarMinHeight = 10
+local scrollbarSelectedPosition = nil
+-- // Wheel // --
 local wheelIndex = 0
 local wheelStep = 0.5
-local scrollbarSelectedPosition = nil
+-- // Item font // --
 local itemFont = 'default-bold'
 local itemScale = 1.0
--- // Custom Events // --
+-- // Custom events // --
 addEvent('onClientDXClick')
+addEvent('onClientItemsChanged')
 -- // Optimizations // --
 local max = math.max
 local min = math.min
 local floor = math.floor
 local ceil = math.ceil
+local remove_ = table.remove
+local insert_ = table.insert
 
 addEventHandler('onClientResourceStart',resourceRoot,
 	function()
@@ -34,14 +44,8 @@ end)
 addEventHandler('onClientRender',root,
 	function()
 		if renderTarget then
-			-- // Draw render target -- //
 			dxDrawImage(renderTargetX,renderTargetY,gridlistWidth,gridlistHeight,renderTarget)
-			-- // Update render target -- //
-			dxSetRenderTarget(renderTarget,true)	
-			dxSetBlendMode('modulate_add')	
-			main()	
-			dxSetBlendMode('blend')	
-			dxSetRenderTarget()
+			updateRT()
 		end
 end)
 
@@ -50,10 +54,10 @@ addEventHandler('onClientKey',root,
 		if isButtonPressed then
 			if theButton == 'mouse_wheel_down' or theButton == 'mouse_wheel_up' then
 				if getRelativeCursorPosition(renderTargetX,renderTargetY,gridlistWidth,gridlistHeight) then
-					if dxGridListGetTotalVisibleItems() > 0 then
-						local outsideLines = dxGridListGetOutsideLinesCount()
-						wheelIndex = theButton == 'mouse_wheel_down' and wheelKeyMoveDown() or wheelKeyMoveUP()
-						scrollbarY = getScrollBarPositionFromWheelIndex() --// Set the position of the scrollbar depending on the mouse wheel index
+					if dxGridListGetVisibleItemsCount(false) > 0 then
+						wheelIndex = theButton == 'mouse_wheel_down' and wheelKeyMoveDown(wheelStep) or wheelKeyMoveUP(wheelStep)
+						-- // Set the position of the scrollbar depending on the mouse wheel index // --
+						scrollbarY = getScrollBarPositionFromWheelIndex()
 					end
 				end
 			elseif theButton == 'mouse1' then
@@ -77,7 +81,6 @@ addEventHandler('onClientCursorMove',root,
 	function()
 		if (isCursorShowing()) then
 			local _,_,relativeY = getRelativeCursorPosition(0,renderTargetY,0,gridlistHeight)
-			-- // if there was a capture of the scrollbar then drag it with the mouse // --
 			if dxScrollBarIsSelected() then 
 				scrollbarY = relativeY - scrollbarSelectedPosition
 				-- // Preventing the scrollbar from going outside the gridlist // --
@@ -88,38 +91,47 @@ addEventHandler('onClientCursorMove',root,
 		end
 end)
 
+addEventHandler('onClientItemsChanged',resourceRoot,
+	function()
+		if dxGridListIsScrollBarAdded() then
+			scrollbarY = getScrollBarPositionFromWheelIndex()
+			scrollbarHeight = getScrollBarHeight()
+		end
+end)
+
 function main()
 	dxDrawRectangle(gridlistX,gridlistY,gridlistWidth,gridlistHeight,tocolor(150,150,150,150))
-	local rowCount = dxGridListGetRowCount()
-	if (rowCount > 0) then 
+	if (dxGridListGetRowCount() > 0) then 
 		if (dxGridListIsScrollBarAdded()) then
 			dxDrawRectangle(scrollbarX,gridlistY,scrollbarWidth,gridlistHeight,tocolor(255,255,255,150))
 			dxDrawRectangle(scrollbarX,scrollbarY,scrollbarWidth,scrollbarHeight,tocolor(255,255,255,255))
 		end
-		local visibleItems = dxGridListGetCurrentVisibleItems()
+		local visibleItems = dxGridListGetVisibleItems()
 		for i = 1,#visibleItems do 
-			local itemText = visibleItems[i]
-			local smoothMovement = wheelIndex % 1 * dxGridListGetItemHeight()
-			local itemPos = (i - 1) / dxGridListGetTotalVisibleItems() * dxGridListGetCellDistributionHeight() - smoothMovement -- Set the position of each item depending on the relative height
-			dxDrawText(itemText,gridlistX,itemPos,0,0,tocolor(255,255,255,255),itemScale,itemFont,'left','top')
+			local indexPosition = dxGridListCalcIndexPosition(i)
+			dxDrawText(visibleItems[i],gridlistX,indexPosition,0,0,tocolor(255,255,255,255),itemScale,itemFont,'left','top')
 		end
-		--[[local selectedItem = dxGridListGetSelectedItemByCursor()
-		if (selectedItem) then
-			local itemPos = dxGridListGetItemPos(selectedItem)
-			if (itemPos) then 
-				local selectibleWidth = dxGridListGetSelectibleWidth()
-				--dxDrawRectangle(gridlistX,itemPos,selectibleWidth,itemHeight,itemSelectColor)
-			end
-		end]]
 	end
 end
 
+function updateRT()
+	dxSetRenderTarget(renderTarget,true)	
+	dxSetBlendMode('modulate_add')	
+	main()	
+	dxSetBlendMode('blend')	
+	dxSetRenderTarget()
+end
+
 function dxGridListIsScrollBarAdded()
-	return dxGridListGetOutsideLinesCount() > 0
+	return dxGridListGetOutsideLinesCount(false) > 0
 end
 
 function dxGridListAddItem(text)
-	totalItems[#totalItems+1] = text
+	totalItemsListener[#totalItems+1] = text
+end
+
+function dxGridListInsertItemAfter()
+	
 end
 
 function dxGridListGetRowCount()
@@ -130,28 +142,32 @@ function dxGridListGetItemText(row)
 	return totalItems[row]
 end
 
-function wheelKeyMoveUP()
-	return max(wheelIndex - wheelStep,0)
+function wheelKeyMoveUP(wheelStep_)
+	return max(wheelIndex - wheelStep_,0)
 end
 
-function wheelKeyMoveDown()
-	return min(wheelIndex + wheelStep,dxGridListGetOutsideLinesCount())
+function wheelKeyMoveDown(wheelStep_)
+	return min(wheelIndex + wheelStep_,dxGridListGetOutsideLinesCount(false))
 end
 
 function dxScrollBarIsSelected()
 	return scrollbarSelectedPosition ~= nil
 end
 
+function dxGridListCalcIndexPosition(i)
+	return (i - 1) / dxGridListGetVisibleItemsCount(true) * dxGridListGetCellDistributionHeight() - wheelIndex % 1 * dxGridListGetItemHeight()
+end
+
 function getScrollBarPositionFromWheelIndex()
-	return gridlistY + ((wheelIndex / dxGridListGetOutsideLinesCount()) * (gridlistHeight - scrollbarHeight))
+	return gridlistY + ((wheelIndex / dxGridListGetOutsideLinesCount(false)) * (gridlistHeight - scrollbarHeight))
 end
 
 function getScrollBarHeight()
-	return max(dxGridListGetTotalVisibleItems() / dxGridListGetRowCount() * gridlistHeight,scrollbarMinHeight)
+	return max(dxGridListGetVisibleItemsCount(false) / dxGridListGetRowCount() * gridlistHeight,scrollbarMinHeight)
 end
 
 function getWheelIndexFromScrollBarPosition()
-	return scrollbarY / (gridlistHeight - scrollbarHeight) * dxGridListGetOutsideLinesCount()
+	return scrollbarY / (gridlistHeight - scrollbarHeight) * dxGridListGetOutsideLinesCount(false)
 end
 
 function dxGridListGetItemHeight()
@@ -159,34 +175,30 @@ function dxGridListGetItemHeight()
 end
 
 function dxGridListGetCellDistributionHeight()
-	return min(dxGridListGetRowCount() * dxGridListGetItemHeight(),gridlistHeight)
-end
-
-function dxGridListGetTotalVisibleItems()
-	return min(gridlistHeight / dxGridListGetItemHeight(),dxGridListGetRowCount())
+	return dxGridListGetItemHeight() * dxGridListGetVisibleItemsCount(true)
 end
 
 function dxGridListAddItemsListener()
-	setmetatable(totalItems,{
-		__newindex = function(t,k,v)
-			rawset(t,k,v)
-			if dxGridListIsScrollBarAdded() then
-				scrollbarHeight = getScrollBarHeight()
-			end
-		end
-	})
+	
+end
+
+function dxGridListGetVisibleItemsCount(isTotalItems)
+	local visibleItemsCount = min(gridlistHeight / dxGridListGetItemHeight(),dxGridListGetRowCount())
+	if isTotalItems then 
+		return ceil(visibleItemsCount)
+	end
+	return visibleItemsCount
 end
 
 function dxGridListRemoveItem(text,row)
 	local itemCount = dxGridListGetRowCount()
 	if itemCount > 0 then
 		for i = 1,itemCount do
-			if (totalItems[i] == text and i == row) then
-				local _,_,endIndex = dxGridListGetCurrentVisibleItems()
-				if endIndex == dxGridListGetRowCount() then 
-					wheelKeyMoveUP()
+			if totalItems[i] == text and i == row then
+				if dxGridListGetOutsideLinesCount(true) - wheelIndex <= 0 then 
+					wheelIndex = wheelKeyMoveUP(1)
 				end
-				table.remove(totalItems,row)
+				totalItemsListener[i] = nil
 				return true
 			end
 		end
@@ -195,15 +207,15 @@ function dxGridListRemoveItem(text,row)
 end
 
 function dxGridListGetItemPosition(id)
-	local _,startIndex,endIndex = dxGridListGetCurrentVisibleItems()
+	local _,startIndex,endIndex = dxGridListGetVisibleItems()
 	if (id >= startIndex or id <= endIndex) then
-		return ((id - wheelIndex) / dxGridListGetTotalVisibleItems() * dxGridListGetCellDistributionHeight()) - dxGridListGetItemHeight()
+		return ((id - wheelIndex) / dxGridListGetVisibleItemsCount(true) * dxGridListGetCellDistributionHeight()) - dxGridListGetItemHeight()
 	end
 	return nil
 end
 
 function dxGridListGetSelectibleWidth()
-	if dxGridListGetOutsideLinesCount() > 0 then 
+	if dxGridListIsScrollBarAdded() then 
 		return gridlistWidth - scrollbarWidth
 	end
 	return gridlistWidth
@@ -213,28 +225,43 @@ function dxGridListGetSelectedItemByCursor()
 	if isCursorShowing() then
 		local isInRectangle,_,relativeY = getRelativeCursorPosition(renderTargetX,renderTargetY,gridlistWidth,gridlistHeight)
 		if isInRectangle then
-			return ceil((relativeY / dxGridListGetCellDistributionHeight() * dxGridListGetTotalVisibleItems()) + wheelIndex)
+			return ceil(relativeY / dxGridListGetCellDistributionHeight() * dxGridListGetVisibleItemsCount(true) + wheelIndex)
 		end
 	end
 	return nil
 end
 
-function dxGridListGetOutsideLinesCount()
-	return max(0,(dxGridListGetRowCount() - dxGridListGetTotalVisibleItems()))
+function dxGridListGetOutsideLinesCount(isTotalItems)
+	return max(0,(dxGridListGetRowCount() - dxGridListGetVisibleItemsCount(isTotalItems)))
 end
 
-function dxGridListGetCurrentVisibleItems() 
+function dxGridListGetVisibleItems() 
 	local rowCount = dxGridListGetRowCount()
 	if rowCount > 0 then
 		local visibleItems = {}
 		local startIndex = floor(wheelIndex) + 1
-		local endIndex = startIndex + min(rowCount,dxGridListGetTotalVisibleItems())
+		local endIndex = startIndex + min(rowCount,dxGridListGetVisibleItemsCount(true))
 		for i = startIndex,endIndex do 
 			visibleItems[#visibleItems+1] = totalItems[i]
 		end
 		return visibleItems,startIndex,endIndex
 	end
-	return nil,nil,nil
+	return nil
+end
+
+function dxGridListAddItemsListener()
+	return setmetatable(totalItemsListener,{
+		__newindex = function(t,k,v)
+			if v == nil then
+				if totalItems[k] then
+					remove_(totalItems,k)
+				end
+			else
+				insert_(totalItems,k,v)
+			end
+			triggerEvent('onClientItemsChanged',resourceRoot)
+		end
+	})
 end
 
 function getRelativeCursorPosition(x,y,w,h)
@@ -245,7 +272,7 @@ function getRelativeCursorPosition(x,y,w,h)
 		local isInRect = relativeX > 0 and relativeX < w and relativeY > 0 and relativeY < h
 		return isInRect,relativeX,relativeY
 	end
-	return false,nil,nil
+	return false
 end
 
 
