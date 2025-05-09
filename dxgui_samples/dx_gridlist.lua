@@ -48,7 +48,6 @@ addEventHandler('onClientRender',root,
 	function()
 		if renderTarget then			
 			dxDrawImage(renderTargetX,renderTargetY,gridlistWidth,gridlistHeight,renderTarget)
-			
 			dxSetRenderTarget(renderTarget,true)	
 			dxSetBlendMode('modulate_add')	
 			main()	
@@ -189,7 +188,7 @@ end
 function dxGridListGetCellDistributionHeight()
 	local itemHeight = dxGridListGetItemHeight()
 	local visibleItemsCount = dxGridListGetVisibleItemsCount(true)
-	return dxGridListGetItemHeight() * visibleItemsCount
+	return itemHeight * visibleItemsCount
 end
 
 function dxGridListGetVisibleItemsCount(entireVisibleItems)
