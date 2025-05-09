@@ -1,1 +1,6 @@
+<meta>
+	<info author="mxyv89" type="script" name="dxgui_samples" version="1.0" description="" />
+	<script src="dx_gridlist.lua" type="client" />
+	<script src="dx_tests.lua" type="client" />
+</meta>
 
