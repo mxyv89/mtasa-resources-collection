@@ -64,8 +64,8 @@ addEventHandler('onClientKey',root,
 				if getRelativeCursorPosition(renderTargetX,renderTargetY,gridlistWidth,gridlistHeight) then
 					local visibleItemsCount = dxGridListGetVisibleItemsCount(false)
 					if visibleItemsCount > 0 then
-						wheelIndex = theButton == 'mouse_wheel_down' and getwheelIndexFromStepDown(wheelStep) or getwheelIndexFromStepUp(wheelStep)
-						scrollbarY = dxScrollBarGetPositionFromwheelIndex()
+						wheelIndex = theButton == 'mouse_wheel_down' and getWheelIndexFromStepDown(wheelStep) or getWheelIndexFromStepUp(wheelStep)
+						scrollbarY = dxScrollBarGetPositionFromWheelIndex()
 					end
 				end
 			elseif theButton == 'mouse1' then
@@ -103,7 +103,7 @@ addEventHandler('onElementItemsChanged',dxElement,
 		if dxGridListIsScrollBarAdded() then
 			scrollbarHeight = dxScrollBarGetHeight()
 			if wheelIndex > 0 then
-				scrollbarY = dxScrollBarGetPositionFromwheelIndex()
+				scrollbarY = dxScrollBarGetPositionFromWheelIndex()
 			end
 		end
 		
@@ -144,11 +144,11 @@ function dxGridListGetItemText(row)
 	return totalItems[row]
 end
 
-function getwheelIndexFromStepUp(wheelStep_)
+function getWheelIndexFromStepUp(wheelStep_)
 	return max(wheelIndex - wheelStep_,0)
 end
 
-function getwheelIndexFromStepDown(wheelStep_)
+function getWheelIndexFromStepDown(wheelStep_)
 	local outsideLinesCount = dxGridListGetOutsideLinesCount(false)
 	return min(wheelIndex + wheelStep_,outsideLinesCount)
 end
@@ -164,7 +164,7 @@ function dxGridListCalcIndexPosition(i)
 	return (i - 1) / visibleItemsCount * distrHeight - wheelIndex % 1 * itemHeight
 end
 
-function dxScrollBarGetPositionFromwheelIndex()
+function dxScrollBarGetPositionFromWheelIndex()
 	local outsideLinesCount = dxGridListGetOutsideLinesCount(false)
 	return wheelIndex / outsideLinesCount * (gridlistHeight - scrollbarHeight)
 end
@@ -216,7 +216,7 @@ function dxGridListAddItem(itemText,itemAfter)
 		local currentIndex = floor(wheelIndex) + 1
 		insertID = insertID + 1
 		if currentIndex >= insertID then
-			wheelIndex = getwheelIndexFromStepDown(1)
+			wheelIndex = getWheelIndexFromStepDown(1)
 		end
 		totalItemsListener[insertID] = itemText
 		return true
@@ -231,7 +231,7 @@ function dxGridListRemoveItem(itemText,item)
 			if totalItems[itemIndex] == itemText and itemIndex == item then
 				local outsideLinesCount = dxGridListGetOutsideLinesCount(true)
 				if outsideLinesCount - wheelIndex <= 0 then 
-					wheelIndex = getwheelIndexFromStepUp(1)
+					wheelIndex = getWheelIndexFromStepUp(1)
 				end
 				totalItemsListener[itemIndex] = nil
 				return true
