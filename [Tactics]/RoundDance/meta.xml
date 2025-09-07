@@ -1,1 +1,11 @@
-
+<meta>
+	<info author="mxyv89" name="RoundDance" type="script" version="1.0" description="" />
+	<script src="Shared.lua" type="shared" />
+	<script src="Server.lua" type="server" />
+	<script src="Client.lua" type="client" />
+	<settings> 
+		<setting name="*winner" value="DANCING:DAN_Down_A,DANCING:DAN_Loop_A,DANCING:dnce_M_d,STRIP:strip_D" group="Dances For Winners" />
+		<setting name="*loser" value="" group="Dances For Losers" />
+		<setting name="*draw" value="" group="Dances For a Draw" />
+	</settings>
+</meta> 
