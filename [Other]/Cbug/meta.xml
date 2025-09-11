@@ -1,1 +1,9 @@
-
+<meta>
+	<info author="mxyv89" name="Cbug" type="script" version="1.0" description="" />
+	<script src="Server.lua" type="server" />
+	<script src="Client.lua" type="client" />
+	<settings> 
+		<setting name="*Deagle" value="670" group="Weapons" />
+		<setting name="*Sniper" value="1040" group="Weapons" />
+	</settings>
+</meta> 
